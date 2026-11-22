@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sliding Tic-Tac-Toe — Sürüşdürməli X-O</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 25%, #2b190e 0%, #120904 100%);
+      color: #fff6e5;
+    }
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    #gameCanvas:active {
+      cursor: grabbing;
+    }
+    .wood-panel {
+      background: linear-gradient(180deg, rgba(61, 35, 19, 0.98) 0%, rgba(33, 18, 9, 0.99) 100%);
+      border: 1.5px solid #8c5832;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 224, 178, 0.18);
+    }
+    .btn-3d {
+      cursor: pointer;
+      transition: transform 0.08s ease, filter 0.15s ease;
+    }
+    .btn-3d:active {
+      transform: scale(0.95);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.88); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop {
+      animation: popIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center">
+
+  <!-- Əsas Mobil Konteyner -->
+  <div id="app-shell" class="relative w-full h-full max-w-[480px] sm:h-[95vh] sm:max-h-[900px] sm:rounded-[28px] overflow-hidden flex flex-col bg-[#241309] shadow-2xl border-0 sm:border-2 border-[#59341b]">
+
+    <!-- Üst HUD Paneli -->
+    <header class="flex-none bg-gradient-to-b from-[#3d2312] to-[#261409] border-b-2 border-[#5c361c] px-3 py-2 z-20 flex flex-col gap-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <button id="menuBtn" type="button" onclick="window.openMenu()" class="btn-3d px-3 py-1.5 rounded-xl bg-gradient-to-b from-[#6e4223] to-[#4a2a14] border border-[#966039] text-xs font-bold text-[#fff3db] shadow">
+          ☰ Menyu
+        </button>
+
+        <div id="turnBadge" class="flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-amber-500/20 border border-amber-400 text-amber-200 truncate transition-all">
+          Sənin Növbən (Sarı)
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <button id="soundBtn" type="button" onclick="window.toggleSound()" class="btn-3d w-8 h-8 rounded-xl bg-gradient-to-b from-[#6e4223] to-[#4a2a14] border border-[#966039] text-sm flex items-center justify-center shadow" title="Səs">
+            🔊
+          </button>
+          <button id="resetBtn" type="button" onclick="window.resetCurrentRound()" class="btn-3d w-8 h-8 rounded-xl bg-gradient-to-b from-[#6e4223] to-[#4a2a14] border border-[#966039] text-sm font-bold flex items-center justify-center shadow" title="Raundu Yenilə">
+            ↻
+          </button>
+        </div>
+      </div>
+
+      <!-- Xal və Qalan Disk Göstəriciləri -->
+      <div class="flex items-center justify-between bg-black/35 rounded-xl px-3 py-1.5 border border-amber-200/10">
+        <!-- Oyunçu 1 (Sarı) -->
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-1.5">
+            <span id="p1Label" class="text-xs font-bold text-amber-300">Sən (Sarı)</span>
+            <span id="p1Score" class="px-2 py-0.5 rounded-full text-xs font-black bg-amber-500 text-[#231000]" title="Qazanılan Raundlar">0</span>
+          </div>
+          <div id="p1Pips" class="flex items-center gap-1"></div>
+        </div>
+
+        <!-- Mərkəz Raund və Qayda -->
+        <div class="text-center px-2.5 py-0.5 rounded-lg bg-white/5 border border-white/10">
+          <div id="roundLabel" class="text-[11px] font-extrabold text-[#e8cba8]">Raund 1</div>
+          <div id="subRoundLabel" class="text-[10px] font-semibold text-amber-300/90">3-lük Xətt = Qələbə</div>
+        </div>
+
+        <!-- Oyunçu 2 / Bot (Göy) -->
+        <div class="flex flex-col items-end gap-1">
+          <div class="flex items-center gap-1.5">
+            <span id="p2Score" class="px-2 py-0.5 rounded-full text-xs font-black bg-sky-500 text-white" title="Qazanılan Raundlar">0</span>
+            <span id="p2Label" class="text-xs font-bold text-sky-300">Bot (Çətin)</span>
+          </div>
+          <div id="p2Pips" class="flex items-center gap-1"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Taxta Oyun Lövhəsi Konteyneri -->
+    <main id="canvasWrap" class="relative flex-1 w-full h-full overflow-hidden">
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- Başlanğıc Menyusu -->
+      <div id="startOverlay" style="display: flex; pointer-events: auto; z-index: 1000;" class="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="wood-panel animate-pop w-full max-w-[380px] rounded-3xl p-5 flex flex-col gap-4 text-center">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-b from-[#fff3bf] via-[#fcc419] to-[#e67700] bg-clip-text text-transparent">
+              SÜRÜŞDÜRMƏLİ X-O
+            </h1>
+            <p class="text-xs sm:text-sm text-[#dec19e] mt-1">
+              Diski geri çəkib hədəf halqalarına at, rəqibi vurub çıxar və 3 halqanı bir xətt üzrə tamamla!
+            </p>
+          </div>
+
+          <!-- Rejim Seçimi -->
+          <div class="text-left">
+            <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#c99e72] mb-1.5">Oyun Rejimi</div>
+            <div class="grid grid-cols-2 gap-2">
+              <button id="modeBotBtn" type="button" onclick="window.selectMode('bot')" class="btn-3d py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold border transition-all bg-gradient-to-b from-amber-500 to-amber-600 border-amber-200 text-[#241100] shadow-lg">
+                🤖 Bot ilə Oyna
+              </button>
+              <button id="modePvpBtn" type="button" onclick="window.selectMode('pvp')" class="btn-3d py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]">
+                👥 2 Oyunçu
+              </button>
+            </div>
+          </div>
+
+          <!-- Bot Çətinliyi -->
+          <div id="diffWrapper" class="text-left">
+            <div class="text-[11px] font-extrabold uppercase tracking-wider text-[#c99e72] mb-1.5">Bot Çətinlik Səviyyəsi</div>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button id="diffEasyBtn" type="button" onclick="window.selectDifficulty('easy')" class="btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]">
+                Asan
+              </button>
+              <button id="diffMediumBtn" type="button" onclick="window.selectDifficulty('medium')" class="btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]">
+                Orta
+              </button>
+              <button id="diffHardBtn" type="button" onclick="window.selectDifficulty('hard')" class="btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-gradient-to-b from-amber-500 to-amber-600 border-amber-200 text-[#241100] shadow">
+                Çətin
+              </button>
+              <button id="diffMasterBtn" type="button" onclick="window.selectDifficulty('master')" class="btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]">
+                Ustad
+              </button>
+            </div>
+          </div>
+
+          <!-- Dəqiq Qayda İzahı -->
+          <div class="bg-black/35 rounded-2xl p-3 text-left text-xs text-[#dec19e] leading-relaxed border border-amber-200/10 space-y-1">
+            <div>• <strong class="text-amber-300">Qələbə Şərti:</strong> Üfüqi, şaquli və ya diaqonal üzrə <strong>3 halqanı</strong> bir sıraya düzən qalib gəlir (2 halqa qələbə sayılmır).</div>
+            <div>• <strong class="text-amber-300">45% Mərkəz Kilidi:</strong> Disk yalnız halqa mərkəzinə tam oturduqda işıqlanır və sayılır.</div>
+            <div>• <strong class="text-amber-300">Klassik Ox:</strong> Yalnız istiqamət və gücü göstərir.</div>
+          </div>
+
+          <button id="startBtn" type="button" onclick="window.startMatch()" class="btn-3d w-full py-3.5 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 border-2 border-emerald-300 text-white text-lg font-black tracking-wider shadow-xl">
+            ▶ BAŞLAMAQ
+          </button>
+        </div>
+      </div>
+
+      <!-- Raund Sonu Ekranı -->
+      <div id="endOverlay" style="display: none; pointer-events: none; z-index: 1000;" class="absolute inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="wood-panel animate-pop w-full max-w-[360px] rounded-3xl p-6 flex flex-col items-center gap-3 text-center">
+          <div id="resultIcon" class="text-5xl">🏆</div>
+          <h2 id="resultTitle" class="text-2xl font-black text-amber-300">Təbriklər, Qalib Gəldin!</h2>
+          <p id="resultDesc" class="text-sm text-[#e6ccb2]">3-lük xəttini tamamladın!</p>
+          <div id="resultBreakdown" class="w-full py-2 px-3 rounded-xl bg-black/40 border border-amber-200/15 text-xs font-bold text-[#e8cba8]">
+            Tutulan halqalar — Sarı: 0 | Göy: 0
+          </div>
+          <button id="nextRoundBtn" type="button" onclick="window.startNextRound()" class="btn-3d w-full mt-1 py-3.5 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 border-2 border-emerald-300 text-white text-base font-black tracking-wide shadow-lg">
+            ▶ Növbəti Raund
+          </button>
+          <button id="resultMenuBtn" type="button" onclick="window.openMenu()" class="btn-3d w-full py-2.5 rounded-xl bg-gradient-to-b from-[#6e4223] to-[#4a2a14] border border-[#966039] text-sm font-bold text-[#fff3db]">
+            Əsas Menyu
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. CONSTANTS, DOM REFERENCES & DETERMINISTIC STATE MACHINE
+    // =========================================================================
+    const FRICTION = 0.985;
+    const WALL_BOUNCE = 0.72;
+    const DISC_RESTITUTION = 0.88;
+    const STOP_SPEED = 0.08;
+    const LOCK_SPEED = 0.14;
+    const LOCK_THRESHOLD_RATIO = 0.45;
+    const DISCS_PER_PLAYER = 5;
+
+    // 8 Official Tic-Tac-Toe 3-in-a-Row Lines
+    const WIN_LINES = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Üfüqi
+      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Şaquli
+      [0, 4, 8], [2, 4, 6]             // Diaqonal
+    ];
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasWrap = document.getElementById('canvasWrap');
+
+    const ui = {
+      startOverlay: document.getElementById('startOverlay'),
+      endOverlay: document.getElementById('endOverlay'),
+      turnBadge: document.getElementById('turnBadge'),
+      soundBtn: document.getElementById('soundBtn'),
+      p1Label: document.getElementById('p1Label'),
+      p2Label: document.getElementById('p2Label'),
+      p1Score: document.getElementById('p1Score'),
+      p2Score: document.getElementById('p2Score'),
+      p1Pips: document.getElementById('p1Pips'),
+      p2Pips: document.getElementById('p2Pips'),
+      roundLabel: document.getElementById('roundLabel'),
+      subRoundLabel: document.getElementById('subRoundLabel'),
+      diffWrapper: document.getElementById('diffWrapper'),
+      resultIcon: document.getElementById('resultIcon'),
+      resultTitle: document.getElementById('resultTitle'),
+      resultDesc: document.getElementById('resultDesc'),
+      resultBreakdown: document.getElementById('resultBreakdown')
+    };
+
+    const board = {
+      w: 380,
+      h: 640,
+      dpr: 1,
+      rail: 16,
+      playLeft: 16,
+      playRight: 364,
+      playTop: 16,
+      playBottom: 624,
+      holeRadius: 28,
+      discRadius: 20,
+      foulLineY: 480,
+      launchY: 560
+    };
+
+    const state = {
+      screen: 'MENU',      // 'MENU' | 'PLAYING'
+      phase: 'IDLE',       // 'IDLE' | 'AIM' | 'MOVING' | 'BOT_THINK' | 'ROUND_END'
+      mode: 'bot',         // 'bot' | 'pvp'
+      difficulty: 'hard',  // 'easy' | 'medium' | 'hard' | 'master'
+      turn: 'yellow',      // 'yellow' | 'blue'
+      round: 1,
+      scores: { yellow: 0, blue: 0 },
+      remaining: { yellow: DISCS_PER_PLAYER, blue: DISCS_PER_PLAYER },
+      rings: [],
+      discs: [],
+      activeDisc: null,
+      particles: [],
+      winningLine: null,
+      winner: null,        // 'yellow' | 'blue' | 'draw' | null
+      isDragging: false,
+      pointerId: null,
+      dragStart: { x: 0, y: 0 },
+      dragCurrent: { x: 0, y: 0 },
+      botTimer: null,
+      modalTimer: null,
+      loopStarted: false,
+      woodPattern: null
+    };
+
+    // =========================================================================
+    // 2. WEB AUDIO SYNTHESIZER (WOOD SLIDE, CLACK, RING LOCK, WIN, DRAW)
+    // =========================================================================
+    const fx = {
+      ctx: null,
+      muted: false,
+      init() {
+        try {
+          if (!this.ctx) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume().catch(() => {});
+          }
+        } catch (e) {}
+      },
+      toggle() {
+        this.muted = !this.muted;
+        return this.muted;
+      },
+      tone(freq, endFreq, dur, type = 'sine', vol = 0.14, delay = 0) {
+        if (this.muted) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + dur);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + dur + 0.02);
+        } catch (e) {}
+      },
+      slide(power) {
+        this.tone(130 + power * 90, 65, 0.2, 'triangle', 0.12);
+      },
+      clack(intensity) {
+        const v = Math.min(0.24, Math.max(0.04, intensity * 0.2));
+        this.tone(540 + Math.random() * 140, 170, 0.075, 'triangle', v);
+      },
+      rail(intensity) {
+        const v = Math.min(0.16, Math.max(0.03, intensity * 0.14));
+        this.tone(240, 95, 0.08, 'sine', v);
+      },
+      lock() {
+        this.tone(523.25, 783.99, 0.16, 'sine', 0.13);
+      },
+      win() {
+        this.tone(523.25, 523.25, 0.16, 'triangle', 0.15, 0);
+        this.tone(659.25, 659.25, 0.16, 'triangle', 0.15, 0.12);
+        this.tone(783.99, 783.99, 0.18, 'triangle', 0.15, 0.24);
+        this.tone(1046.5, 1046.5, 0.36, 'triangle', 0.18, 0.36);
+      },
+      draw() {
+        this.tone(392.0, 349.23, 0.22, 'triangle', 0.14, 0);
+        this.tone(329.63, 293.66, 0.32, 'triangle', 0.14, 0.2);
+      }
+    };
+
+    // =========================================================================
+    // 3. PROCEDURAL WOOD TEXTURE & RESPONSIVE BOARD GEOMETRY
+    // =========================================================================
+    function buildWoodPattern() {
+      try {
+        const off = document.createElement('canvas');
+        off.width = 256;
+        off.height = 256;
+        const octx = off.getContext('2d');
+
+        const base = octx.createLinearGradient(0, 0, 256, 0);
+        base.addColorStop(0, '#c88c4b');
+        base.addColorStop(0.5, '#d99e5b');
+        base.addColorStop(1, '#c28443');
+        octx.fillStyle = base;
+        octx.fillRect(0, 0, 256, 256);
+
+        for (let x = 0; x < 256; x += 2) {
+          const wave = Math.sin(x * 0.08) * 14 + Math.cos(x * 0.03) * 8;
+          octx.strokeStyle = x % 6 === 0 ? 'rgba(92, 48, 16, 0.14)' : 'rgba(255, 232, 198, 0.08)';
+          octx.lineWidth = 1.2;
+          octx.beginPath();
+          octx.moveTo(x, 0);
+          octx.bezierCurveTo(x + wave * 0.3, 85, x - wave * 0.3, 170, x, 256);
+          octx.stroke();
+        }
+        state.woodPattern = ctx.createPattern(off, 'repeat');
+      } catch (e) {
+        state.woodPattern = '#cf9452';
+      }
+    }
+
+    function resizeBoard() {
+      const rect = canvasWrap.getBoundingClientRect();
+      const rawW = rect.width || window.innerWidth || 380;
+      const rawH = rect.height || (window.innerHeight - 110) || 640;
+
+      const oldW = board.w || rawW;
+      const oldH = board.h || rawH;
+
+      board.w = Math.max(280, Math.min(480, rawW));
+      board.h = Math.max(440, rawH);
+      board.dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.floor(board.w * board.dpr);
+      canvas.height = Math.floor(board.h * board.dpr);
+      ctx.setTransform(board.dpr, 0, 0, board.dpr, 0, 0);
+
+      board.rail = Math.max(14, Math.round(board.w * 0.042));
+      board.playLeft = board.rail;
+      board.playRight = board.w - board.rail;
+      board.playTop = board.rail;
+      board.playBottom = board.h - board.rail;
+
+      const innerW = board.playRight - board.playLeft;
+      board.holeRadius = Math.max(22, Math.min(34, innerW * 0.088));
+      board.discRadius = Math.round(board.holeRadius * 0.72);
+
+      // Generous launch lane at bottom (y = playBottom - discRadius * 3.4)
+      board.launchY = board.playBottom - board.discRadius * 3.4;
+      board.foulLineY = board.launchY - board.discRadius * 2.1;
+
+      const gridTop = board.playTop + board.holeRadius * 1.95;
+      const gridBottom = board.foulLineY - board.holeRadius * 1.75;
+      const gridCenterY = (gridTop + gridBottom) * 0.5;
+      const maxSpanY = Math.max(150, (gridBottom - gridTop) * 0.44);
+      const maxSpanX = innerW * 0.31;
+      const gridSpan = Math.min(maxSpanX, maxSpanY);
+
+      const prevGlows = state.rings.map(r => r.glow);
+
+      state.rings = [];
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 3; col++) {
+          const idx = row * 3 + col;
+          state.rings.push({
+            index: idx,
+            row,
+            col,
+            x: board.w * 0.5 + (col - 1) * gridSpan,
+            y: gridCenterY + (row - 1) * gridSpan,
+            lockedBy: null,
+            glow: prevGlows[idx] || 0
+          });
+        }
+      }
+
+      if (oldW > 0 && oldH > 0 && state.discs.length > 0) {
+        const sx = board.w / oldW;
+        const sy = board.h / oldH;
+        for (const d of state.discs) {
+          d.r = board.discRadius;
+          if (d.lockedRing !== null && state.rings[d.lockedRing]) {
+            d.x = state.rings[d.lockedRing].x;
+            d.y = state.rings[d.lockedRing].y;
+          } else {
+            d.x = Math.max(board.playLeft + d.r, Math.min(board.playRight - d.r, d.x * sx));
+            d.y = Math.max(board.playTop + d.r, Math.min(board.playBottom - d.r, d.y * sy));
+          }
+        }
+      }
+
+      if (state.activeDisc) {
+        state.activeDisc.r = board.discRadius;
+        state.activeDisc.y = board.launchY;
+        state.activeDisc.x = Math.max(
+          board.playLeft + board.discRadius * 1.4,
+          Math.min(board.playRight - board.discRadius * 1.4, state.activeDisc.x * (board.w / oldW))
+        );
+      }
+
+      syncBoardLocks();
+    }
+
+    // =========================================================================
+    // 4. SINGLE SOURCE OF TRUTH: PURE `syncBoardLocks()` FUNCTION
+    // =========================================================================
+    function syncBoardLocks() {
+      const lockLimit = board.holeRadius * LOCK_THRESHOLD_RATIO;
+      const anyDiscMoving = state.discs.some(d => Math.hypot(d.vx, d.vy) >= LOCK_SPEED);
+
+      for (const r of state.rings) {
+        r.lockedBy = null;
+      }
+      for (const d of state.discs) {
+        d.lockedRing = null;
+      }
+
+      // Strict lock ONLY when discs have stopped moving AND center is within 0.45 * ringRadius
+      if (!anyDiscMoving && state.rings.length === 9) {
+        for (const r of state.rings) {
+          let bestDisc = null;
+          let bestDist = Infinity;
+
+          for (const d of state.discs) {
+            const dist = Math.hypot(d.x - r.x, d.y - r.y);
+            if (dist <= lockLimit && dist < bestDist) {
+              bestDist = dist;
+              bestDisc = d;
+            }
+          }
+
+          if (bestDisc) {
+            r.lockedBy = bestDisc.owner;
+            bestDisc.lockedRing = r.index;
+          }
+        }
+      }
+
+      // Compute counts & check official 8 Tic-Tac-Toe 3-in-a-row WIN_LINES
+      let yellowCount = 0;
+      let blueCount = 0;
+      for (const r of state.rings) {
+        if (r.lockedBy === 'yellow') yellowCount++;
+        else if (r.lockedBy === 'blue') blueCount++;
+      }
+
+      let foundWinningLine = null;
+      let lineWinner = null;
+      if (state.rings.length === 9) {
+        for (const line of WIN_LINES) {
+          const [a, b, c] = line;
+          const occ = state.rings[a].lockedBy;
+          if (occ && occ === state.rings[b].lockedBy && occ === state.rings[c].lockedBy) {
+            foundWinningLine = line;
+            lineWinner = occ;
+            break;
+          }
+        }
+      }
+
+      return {
+        anyDiscMoving,
+        yellowCount,
+        blueCount,
+        winningLine: foundWinningLine,
+        winner: lineWinner
+      };
+    }
+
+    // =========================================================================
+    // 5. OVERLAY HELPERS & GLOBAL WINDOW UI CONTROLS
+    // =========================================================================
+    function setOverlayVisible(el, visible) {
+      if (!el) return;
+      if (visible) {
+        el.style.display = 'flex';
+        el.style.pointerEvents = 'auto';
+        el.style.zIndex = '1000';
+      } else {
+        el.style.display = 'none';
+        el.style.pointerEvents = 'none';
+      }
+    }
+
+    function clearAllTimers() {
+      clearTimeout(state.botTimer);
+      clearTimeout(state.modalTimer);
+      state.botTimer = null;
+      state.modalTimer = null;
+    }
+
+    window.selectMode = function(mode) {
+      state.mode = mode === 'pvp' ? 'pvp' : 'bot';
+      const botBtn = document.getElementById('modeBotBtn');
+      const pvpBtn = document.getElementById('modePvpBtn');
+
+      const activeClass = 'btn-3d py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold border transition-all bg-gradient-to-b from-amber-500 to-amber-600 border-amber-200 text-[#241100] shadow-lg';
+      const idleClass = 'btn-3d py-2.5 px-3 rounded-xl text-xs sm:text-sm font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]';
+
+      if (botBtn) botBtn.className = state.mode === 'bot' ? activeClass : idleClass;
+      if (pvpBtn) pvpBtn.className = state.mode === 'pvp' ? activeClass : idleClass;
+      if (ui.diffWrapper) {
+        ui.diffWrapper.style.display = state.mode === 'bot' ? 'block' : 'none';
+      }
+      updateHUD();
+    };
+
+    window.selectDifficulty = function(diff) {
+      const valid = ['easy', 'medium', 'hard', 'master'];
+      state.difficulty = valid.includes(diff) ? diff : 'hard';
+
+      const map = {
+        easy: document.getElementById('diffEasyBtn'),
+        medium: document.getElementById('diffMediumBtn'),
+        hard: document.getElementById('diffHardBtn'),
+        master: document.getElementById('diffMasterBtn')
+      };
+      const activeClass = 'btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-gradient-to-b from-amber-500 to-amber-600 border-amber-200 text-[#241100] shadow';
+      const idleClass = 'btn-3d py-2 rounded-xl text-xs font-extrabold border transition-all bg-black/35 border-[#6e4326] text-[#e6ccb2]';
+
+      for (const k of valid) {
+        if (map[k]) map[k].className = k === state.difficulty ? activeClass : idleClass;
+      }
+      updateHUD();
+    };
+
+    window.startMatch = function() {
+      fx.init();
+      clearAllTimers();
+      setOverlayVisible(ui.startOverlay, false);
+      setOverlayVisible(ui.endOverlay, false);
+      state.screen = 'PLAYING';
+      resizeBoard();
+      startNewRound(false);
+    };
+
+    window.startNextRound = function() {
+      fx.init();
+      clearAllTimers();
+      setOverlayVisible(ui.endOverlay, false);
+      state.round += 1;
+      state.screen = 'PLAYING';
+      resizeBoard();
+      startNewRound(true);
+    };
+
+    window.resetCurrentRound = function() {
+      if (state.screen !== 'PLAYING') return;
+      fx.init();
+      clearAllTimers();
+      setOverlayVisible(ui.endOverlay, false);
+      startNewRound(true);
+    };
+
+    window.openMenu = function() {
+      clearAllTimers();
+      state.isDragging = false;
+      state.pointerId = null;
+      state.screen = 'MENU';
+      setOverlayVisible(ui.endOverlay, false);
+      setOverlayVisible(ui.startOverlay, true);
+    };
+
+    window.toggleSound = function() {
+      const muted = fx.toggle();
+      if (ui.soundBtn) ui.soundBtn.textContent = muted ? '🔇' : '🔊';
+    };
+
+    // =========================================================================
+    // 6. HUD, ROUND FLOW & STRICT 3-IN-A-ROW / EXPLICIT DRAW LOGIC
+    // =========================================================================
+    function updateHUD() {
+      ui.p1Score.textContent = state.scores.yellow;
+      ui.p2Score.textContent = state.scores.blue;
+      ui.roundLabel.textContent = `Raund ${state.round}`;
+      ui.subRoundLabel.textContent = '3-lük Xətt = Qələbə';
+
+      if (state.mode === 'bot') {
+        const diffLabel = { easy: 'Asan', medium: 'Orta', hard: 'Çətin', master: 'Ustad' };
+        ui.p1Label.textContent = 'Sən (Sarı)';
+        ui.p2Label.textContent = `Bot (${diffLabel[state.difficulty]})`;
+      } else {
+        ui.p1Label.textContent = 'Oyunçu 1 (Sarı)';
+        ui.p2Label.textContent = '2-ci Oyunçu (Göy)';
+      }
+
+      ui.p1Pips.innerHTML = '';
+      for (let i = 0; i < DISCS_PER_PLAYER; i++) {
+        const dot = document.createElement('span');
+        const used = i >= state.remaining.yellow;
+        dot.className = `w-2.5 h-2.5 rounded-full transition-all ${used ? 'bg-amber-400/20 scale-75' : 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'}`;
+        ui.p1Pips.appendChild(dot);
+      }
+
+      ui.p2Pips.innerHTML = '';
+      for (let i = 0; i < DISCS_PER_PLAYER; i++) {
+        const dot = document.createElement('span');
+        const used = i >= state.remaining.blue;
+        dot.className = `w-2.5 h-2.5 rounded-full transition-all ${used ? 'bg-sky-400/20 scale-75' : 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.8)]'}`;
+        ui.p2Pips.appendChild(dot);
+      }
+
+      // Clean terminal badge status — NEVER show "Bot Düşünür..." after round end
+      if (state.phase === 'ROUND_END') {
+        if (state.winner === 'yellow') {
+          ui.turnBadge.textContent = state.mode === 'bot' ? '🏆 Qalib Gəldin!' : '🏆 Sarı Qalib Gəldi!';
+          ui.turnBadge.className = 'flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-emerald-500/25 border border-emerald-400 text-emerald-200 truncate shadow-[0_0_12px_rgba(16,185,129,0.35)]';
+        } else if (state.winner === 'blue') {
+          ui.turnBadge.textContent = state.mode === 'bot' ? '🤖 Bot Qalib Gəldi!' : '🏆 2-ci Oyunçu Qalib!';
+          ui.turnBadge.className = 'flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-sky-500/25 border border-sky-400 text-sky-200 truncate shadow-[0_0_12px_rgba(56,189,248,0.35)]';
+        } else {
+          ui.turnBadge.textContent = '🤝 Heç-heçə! 3-lük tamamlanmadı';
+          ui.turnBadge.className = 'flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-amber-500/20 border border-amber-400 text-amber-200 truncate';
+        }
+        return;
+      }
+
+      if (state.turn === 'yellow') {
+        ui.turnBadge.textContent = state.mode === 'bot' ? 'Sənin Növbən (Sarı)' : 'Sarı Növbəsi';
+        ui.turnBadge.className = 'flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-amber-500/20 border border-amber-400 text-amber-200 truncate shadow-[0_0_12px_rgba(245,158,11,0.3)]';
+      } else {
+        ui.turnBadge.textContent = state.mode === 'bot' ? 'Bot Düşünür...' : '2-ci Oyunçu (Göy)';
+        ui.turnBadge.className = 'flex-1 text-center py-1.5 px-3 rounded-full text-xs sm:text-sm font-extrabold tracking-wide bg-sky-500/20 border border-sky-400 text-sky-200 truncate shadow-[0_0_12px_rgba(56,189,248,0.3)]';
+      }
+    }
+
+    function spawnActiveDisc(owner) {
+      if (state.remaining[owner] <= 0) {
+        state.activeDisc = null;
+        return;
+      }
+      state.activeDisc = {
+        owner,
+        x: board.w * 0.5,
+        y: board.launchY,
+        vx: 0,
+        vy: 0,
+        r: board.discRadius,
+        lockedRing: null
+      };
+    }
+
+    function startNewRound(keepScores = true) {
+      clearAllTimers();
+      if (!keepScores) {
+        state.scores = { yellow: 0, blue: 0 };
+        state.round = 1;
+      }
+
+      state.discs = [];
+      state.activeDisc = null;
+      state.particles = [];
+      state.winningLine = null;
+      state.winner = null;
+      state.isDragging = false;
+      state.pointerId = null;
+      state.remaining = { yellow: DISCS_PER_PLAYER, blue: DISCS_PER_PLAYER };
+
+      for (const r of state.rings) {
+        r.lockedBy = null;
+        r.glow = 0;
+      }
+
+      state.turn = state.round % 2 === 1 ? 'yellow' : 'blue';
+      spawnActiveDisc(state.turn);
+
+      if (state.mode === 'bot' && state.turn === 'blue') {
+        state.phase = 'BOT_THINK';
+        scheduleBotShot();
+      } else {
+        state.phase = 'AIM';
+      }
+      updateHUD();
+    }
+
+    function evaluateRoundCompletion() {
+      const snapshot = syncBoardLocks();
+
+      // 1. Victory ONLY when one of the 8 official 3-in-a-row WIN_LINES is completed
+      if (snapshot.winningLine && snapshot.winner) {
+        clearAllTimers();
+        state.winningLine = snapshot.winningLine;
+        state.winner = snapshot.winner;
+        state.phase = 'ROUND_END';
+        state.scores[snapshot.winner] += 1;
+        updateHUD();
+        fx.win();
+        openResultModal(
+          snapshot.winner,
+          '3 hədəf halqasını bir xətt üzrə tam tamamladı!',
+          snapshot.yellowCount,
+          snapshot.blueCount
+        );
+        return;
+      }
+
+      // 2. If all 10 discs (5 Yellow + 5 Blue) are thrown and stopped without a 3-in-a-row -> Explicit Draw
+      if (state.remaining.yellow === 0 && state.remaining.blue === 0 && !state.activeDisc) {
+        clearAllTimers();
+        state.winningLine = null;
+        state.winner = 'draw';
+        state.phase = 'ROUND_END';
+        updateHUD();
+        fx.draw();
+        openResultModal(
+          'draw',
+          'Heç-heçə! 3-lük tamamlanmadı.',
+          snapshot.yellowCount,
+          snapshot.blueCount
+        );
+        return;
+      }
+
+      // 3. Otherwise advance to the next player who still has remaining discs
+      const nextTurn = state.turn === 'yellow' ? 'blue' : 'yellow';
+      if (state.remaining[nextTurn] > 0) {
+        state.turn = nextTurn;
+      }
+      spawnActiveDisc(state.turn);
+
+      if (state.mode === 'bot' && state.turn === 'blue') {
+        state.phase = 'BOT_THINK';
+        scheduleBotShot();
+      } else {
+        state.phase = 'AIM';
+      }
+      updateHUD();
+    }
+
+    function openResultModal(outcome, desc, yellowCount, blueCount) {
+      clearTimeout(state.modalTimer);
+      state.modalTimer = setTimeout(() => {
+        if (state.phase !== 'ROUND_END') return;
+
+        if (outcome === 'yellow') {
+          ui.resultIcon.textContent = '🏆';
+          ui.resultTitle.textContent = state.mode === 'bot' ? 'Təbriklər, Qalib Gəldin!' : 'Sarı Oyunçu Qalib Gəldi!';
+          ui.resultTitle.className = 'text-2xl font-black text-amber-300';
+        } else if (outcome === 'blue') {
+          ui.resultIcon.textContent = state.mode === 'bot' ? '🤖' : '🏆';
+          ui.resultTitle.textContent = state.mode === 'bot' ? 'Bot Qalib Gəldi!' : '2-ci Oyunçu Qalib Gəldi!';
+          ui.resultTitle.className = 'text-2xl font-black text-sky-300';
+        } else {
+          ui.resultIcon.textContent = '🤝';
+          ui.resultTitle.textContent = 'Heç-heçə! 3-lük tamamlanmadı';
+          ui.resultTitle.className = 'text-xl sm:text-2xl font-black text-[#f3d9b1]';
+        }
+
+        ui.resultDesc.textContent = desc;
+        ui.resultBreakdown.textContent = `Tutulan halqalar — Sarı: ${yellowCount} | Göy: ${blueCount}`;
+        setOverlayVisible(ui.endOverlay, true);
+      }, 650);
+    }
+
+    // =========================================================================
+    // 7. ELASTIC PHYSICS & TABLETOP FRICTION ENGINE
+    // =========================================================================
+    function launchDisc(vx, vy) {
+      if (!state.activeDisc) return;
+      const d = state.activeDisc;
+      if (state.remaining[d.owner] <= 0) return;
+
+      d.vx = vx;
+      d.vy = vy;
+      state.discs.push(d);
+      state.remaining[d.owner] -= 1;
+      state.activeDisc = null;
+      state.phase = 'MOVING';
+
+      const maxRefSpeed = board.h * (1 - FRICTION) * 1.45;
+      fx.slide(Math.min(1, Math.hypot(vx, vy) / maxRefSpeed));
+      updateHUD();
+    }
+
+    function addSparks(x, y) {
+      for (let i = 0; i < 8; i++) {
+        const ang = (Math.PI * 2 * i) / 8 + Math.random() * 0.4;
+        const spd = 1.2 + Math.random() * 2.4;
+        state.particles.push({
+          x, y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 1
+        });
+      }
+    }
+
+    function stepPhysics(dtScale) {
+      for (const r of state.rings) {
+        const target = r.lockedBy ? 1 : 0;
+        r.glow += (target - r.glow) * 0.22 * dtScale;
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.x += p.vx * dtScale;
+        p.y += p.vy * dtScale;
+        p.life -= 0.045 * dtScale;
+        if (p.life <= 0) state.particles.splice(i, 1);
+      }
+
+      if (state.phase !== 'MOVING') return;
+
+      const subSteps = 4;
+      const subDt = dtScale / subSteps;
+      const subFriction = Math.pow(FRICTION, subDt);
+      const lockLimit = board.holeRadius * LOCK_THRESHOLD_RATIO;
+
+      for (let s = 0; s < subSteps; s++) {
+        for (const d of state.discs) {
+          d.x += d.vx * subDt;
+          d.y += d.vy * subDt;
+          d.vx *= subFriction;
+          d.vy *= subFriction;
+
+          // Cushion Rail Bounces
+          if (d.x - d.r < board.playLeft) {
+            d.x = board.playLeft + d.r;
+            if (d.vx < 0) { fx.rail(Math.abs(d.vx) / 14); d.vx = -d.vx * WALL_BOUNCE; }
+          } else if (d.x + d.r > board.playRight) {
+            d.x = board.playRight - d.r;
+            if (d.vx > 0) { fx.rail(Math.abs(d.vx) / 14); d.vx = -d.vx * WALL_BOUNCE; }
+          }
+
+          if (d.y - d.r < board.playTop) {
+            d.y = board.playTop + d.r;
+            if (d.vy < 0) { fx.rail(Math.abs(d.vy) / 14); d.vy = -d.vy * WALL_BOUNCE; }
+          } else if (d.y + d.r > board.playBottom) {
+            d.y = board.playBottom - d.r;
+            if (d.vy > 0) { fx.rail(Math.abs(d.vy) / 14); d.vy = -d.vy * WALL_BOUNCE; }
+          }
+
+          // Subtle magnetic centering ONLY when inside 0.45 * ringRadius & moving slowly
+          const spd = Math.hypot(d.vx, d.vy);
+          if (spd < 1.7) {
+            for (const r of state.rings) {
+              const dx = r.x - d.x;
+              const dy = r.y - d.y;
+              const dist = Math.hypot(dx, dy);
+              if (dist <= lockLimit) {
+                if (dist > 0.25) {
+                  const pull = 0.22 * subDt;
+                  d.vx += (dx / dist) * pull;
+                  d.vy += (dy / dist) * pull;
+                  d.vx *= 0.90;
+                  d.vy *= 0.90;
+                } else if (spd < 0.18) {
+                  d.x = r.x;
+                  d.y = r.y;
+                  d.vx = 0;
+                  d.vy = 0;
+                }
+                break;
+              }
+            }
+          }
+        }
+
+        // Elastic Disc-to-Disc Collisions
+        for (let i = 0; i < state.discs.length; i++) {
+          for (let j = i + 1; j < state.discs.length; j++) {
+            const a = state.discs[i];
+            const b = state.discs[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            const minDist = a.r + b.r;
+
+            if (dist < minDist && dist > 0.0001) {
+              const nx = dx / dist;
+              const ny = dy / dist;
+              const overlap = (minDist - dist) * 0.5;
+              a.x -= nx * overlap;
+              a.y -= ny * overlap;
+              b.x += nx * overlap;
+              b.y += ny * overlap;
+
+              const rvx = b.vx - a.vx;
+              const rvy = b.vy - a.vy;
+              const velAlongNormal = rvx * nx + rvy * ny;
+              if (velAlongNormal < 0) {
+                const imp = -(1 + DISC_RESTITUTION) * velAlongNormal * 0.5;
+                a.vx -= imp * nx;
+                a.vy -= imp * ny;
+                b.vx += imp * nx;
+                b.vy += imp * ny;
+                if (Math.abs(velAlongNormal) > 0.6) {
+                  fx.clack(Math.abs(velAlongNormal) / 14);
+                  addSparks((a.x + b.x) * 0.5, (a.y + b.y) * 0.5);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      let moving = false;
+      for (const d of state.discs) {
+        if (Math.hypot(d.vx, d.vy) < STOP_SPEED) {
+          d.vx = 0;
+          d.vy = 0;
+        } else {
+          moving = true;
+        }
+      }
+
+      const prevLocks = state.rings.map(r => r.lockedBy);
+      syncBoardLocks();
+
+      // Play chime when a disc newly locks after stopping
+      for (let i = 0; i < state.rings.length; i++) {
+        if (state.rings[i].lockedBy && state.rings[i].lockedBy !== prevLocks[i]) {
+          fx.lock();
+        }
+      }
+
+      if (!moving) {
+        evaluateRoundCompletion();
+      }
+    }
+
+    // =========================================================================
+    // 8. SMART 4-DIFFICULTY AI BOT (15-LANE OBSTACLE BYPASS, BLOCK & KNOCKOUT)
+    // =========================================================================
+    function findWinningMove(sim, color) {
+      for (const [a, b, c] of WIN_LINES) {
+        const line = [a, b, c];
+        const vals = line.map(i => sim[i]);
+        if (vals.filter(v => v === color).length === 2 && vals.filter(v => v === null).length === 1) {
+          return line.find(i => sim[i] === null);
+        }
+      }
+      return -1;
+    }
+
+    function findForkMove(sim, color) {
+      for (let i = 0; i < 9; i++) {
+        if (sim[i] !== null) continue;
+        const copy = [...sim];
+        copy[i] = color;
+        let threats = 0;
+        for (const [a, b, c] of WIN_LINES) {
+          const vals = [copy[a], copy[b], copy[c]];
+          if (vals.filter(v => v === color).length === 2 && vals.filter(v => v === null).length === 1) {
+            threats++;
+          }
+        }
+        if (threats >= 2) return i;
+      }
+      return -1;
+    }
+
+    function findKnockoutRing(sim, oppColor) {
+      // Priority 1: Break opponent's 2-in-a-row threat by knocking out one of their locked discs
+      for (const [a, b, c] of WIN_LINES) {
+        const line = [a, b, c];
+        const opp = line.filter(i => sim[i] === oppColor);
+        const emp = line.filter(i => sim[i] === null);
+        if (opp.length === 2 && emp.length === 1) {
+          return opp.find(i => findClearLaunchLane(state.rings[i]).clear) ?? opp[0];
+        }
+      }
+      // Priority 2: Center or corners
+      if (sim[4] === oppColor) return 4;
+      for (const c of [0, 2, 6, 8]) {
+        if (sim[c] === oppColor) return c;
+      }
+      return sim.findIndex(v => v === oppColor);
+    }
+
+    function isLaneClear(sx, sy, tx, ty, ignoreRingIdx) {
+      const dx = tx - sx;
+      const dy = ty - sy;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return true;
+      const ux = dx / len;
+      const uy = dy / len;
+
+      for (const d of state.discs) {
+        if (d.lockedRing === ignoreRingIdx) continue;
+        const px = d.x - sx;
+        const py = d.y - sy;
+        const proj = px * ux + py * uy;
+        if (proj > d.r * 0.5 && proj < len - d.r * 0.5) {
+          const perp = Math.abs(px * uy - py * ux);
+          if (perp < d.r * 2.15) return false;
+        }
+      }
+      return true;
+    }
+
+    // Evaluates 15 horizontal launch lanes so Bot can shift & curve past blocking discs
+    function findClearLaunchLane(ring) {
+      const minX = board.playLeft + board.discRadius * 1.45;
+      const maxX = board.playRight - board.discRadius * 1.45;
+      const launchY = board.launchY;
+
+      if (isLaneClear(board.w * 0.5, launchY, ring.x, ring.y, ring.index)) {
+        return { x: board.w * 0.5, clear: true };
+      }
+
+      let bestX = board.w * 0.5;
+      let foundClear = false;
+      const lanes = 15;
+      for (let i = 0; i < lanes; i++) {
+        const candidateX = minX + (i / (lanes - 1)) * (maxX - minX);
+        if (isLaneClear(candidateX, launchY, ring.x, ring.y, ring.index)) {
+          if (!foundClear || Math.abs(candidateX - ring.x) < Math.abs(bestX - ring.x)) {
+            bestX = candidateX;
+            foundClear = true;
+          }
+        }
+      }
+      return { x: bestX, clear: foundClear };
+    }
+
+    function scheduleBotShot() {
+      clearTimeout(state.botTimer);
+      const delay = state.difficulty === 'master' ? 460 : 620;
+
+      state.botTimer = setTimeout(() => {
+        if (state.screen !== 'PLAYING' || state.phase !== 'BOT_THINK' || !state.activeDisc) return;
+
+        syncBoardLocks();
+        const sim = state.rings.map(r => r.lockedBy);
+        const diff = state.difficulty;
+        let targetIdx = 4;
+        let isKnockout = false;
+
+        if (diff === 'easy') {
+          const empty = sim.map((v, i) => (v === null ? i : -1)).filter(i => i !== -1);
+          targetIdx = empty.length ? empty[Math.floor(Math.random() * empty.length)] : Math.floor(Math.random() * 9);
+        } else {
+          const winIdx = findWinningMove(sim, 'blue');
+          const blockIdx = findWinningMove(sim, 'yellow');
+          const forkIdx = (diff === 'hard' || diff === 'master') ? findForkMove(sim, 'blue') : -1;
+
+          if (winIdx !== -1) {
+            targetIdx = winIdx;
+          } else if (blockIdx !== -1 && (diff === 'hard' || diff === 'master' || Math.random() < 0.78)) {
+            if (findClearLaunchLane(state.rings[blockIdx]).clear) {
+              targetIdx = blockIdx;
+            } else {
+              const ko = findKnockoutRing(sim, 'yellow');
+              targetIdx = ko !== -1 ? ko : blockIdx;
+              isKnockout = ko !== -1;
+            }
+          } else if (forkIdx !== -1 && findClearLaunchLane(state.rings[forkIdx]).clear) {
+            targetIdx = forkIdx;
+          } else if (sim[4] === null && findClearLaunchLane(state.rings[4]).clear) {
+            targetIdx = 4;
+          } else if ((diff === 'hard' || diff === 'master') && sim.filter(v => v === 'yellow').length >= 2 && findKnockoutRing(sim, 'yellow') !== -1) {
+            targetIdx = findKnockoutRing(sim, 'yellow');
+            isKnockout = true;
+          } else {
+            const priorityOrder = [4, 0, 2, 6, 8, 1, 3, 5, 7];
+            const openRings = priorityOrder.filter(i => sim[i] === null);
+            const clearOpen = openRings.filter(i => findClearLaunchLane(state.rings[i]).clear);
+
+            if (clearOpen.length > 0) {
+              targetIdx = clearOpen[0];
+            } else if (openRings.length > 0) {
+              targetIdx = openRings[0];
+            } else {
+              const ko = findKnockoutRing(sim, 'yellow');
+              targetIdx = ko !== -1 ? ko : 4;
+              isKnockout = ko !== -1;
+            }
+          }
+        }
+
+        const ring = state.rings[targetIdx];
+        let launchX = board.w * 0.5;
+        const launchY = board.launchY;
+
+        if (diff === 'medium' || diff === 'hard' || diff === 'master') {
+          launchX = findClearLaunchLane(ring).x;
+        }
+
+        state.activeDisc.x = launchX;
+        const dx = ring.x - launchX;
+        const dy = ring.y - launchY;
+        const dist = Math.hypot(dx, dy);
+
+        // Exact friction kinematics: d = v / (1 - FRICTION)
+        const exactSpeed = dist * (1 - FRICTION);
+        const mult = isKnockout ? 1.46 : 1.01;
+
+        const errMap = { easy: 0.14, medium: 0.055, hard: 0.015, master: 0.0025 };
+        const err = errMap[diff] || 0.02;
+
+        const angle = Math.atan2(dy, dx) + (Math.random() * 2 - 1) * err;
+        const speed = exactSpeed * mult * (1 + (Math.random() * 2 - 1) * (err * 0.5));
+
+        launchDisc(Math.cos(angle) * speed, Math.sin(angle) * speed);
+      }, delay);
+    }
+
+    // =========================================================================
+    // 9. TOUCH & DRAG AIM CONTROLS (WITH GLOBAL WINDOW RELEASE LISTENERS)
+    // =========================================================================
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    function computeShot() {
+      const dx = state.dragCurrent.x - state.dragStart.x;
+      const dy = state.dragCurrent.y - state.dragStart.y;
+      const dragDist = Math.hypot(dx, dy);
+      if (dragDist < 7) return null;
+
+      let aimX = -dx;
+      let aimY = -dy;
+      if (dy < -12 && Math.abs(dy) > Math.abs(dx) * 0.55) {
+        aimX = dx;
+        aimY = dy;
+      }
+      if (aimY > -10) aimY = -10;
+
+      // Generous pullback sensitivity: 45-60px pull easily reaches top row
+      const maxPull = Math.min(board.w * 0.21, 78);
+      const power = Math.min(1, dragDist / maxPull);
+      const angle = Math.atan2(aimY, aimX);
+
+      const bottomRingY = state.rings[7] ? state.rings[7].y : board.h * 0.55;
+      const minReach = (board.launchY - bottomRingY) * 0.5;
+      const maxReach = (board.launchY - board.playTop) * 1.54;
+      const targetDist = minReach + power * (maxReach - minReach);
+      const speed = targetDist * (1 - FRICTION);
+
+      return {
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        angle,
+        power
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (state.screen !== 'PLAYING' || state.phase !== 'AIM' || !state.activeDisc) return;
+      if (state.mode === 'bot' && state.turn === 'blue') return;
+      if (state.pointerId !== null) return;
+
+      fx.init();
+      const pos = getPointerPos(e);
+
+      if (pos.y > board.foulLineY - board.discRadius * 1.2) {
+        state.activeDisc.x = Math.max(
+          board.playLeft + board.discRadius * 1.4,
+          Math.min(board.playRight - board.discRadius * 1.4, pos.x)
+        );
+      }
+
+      state.isDragging = true;
+      state.pointerId = e.pointerId;
+      state.dragStart = { ...pos };
+      state.dragCurrent = { ...pos };
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch (err) {}
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!state.isDragging || e.pointerId !== state.pointerId) return;
+      state.dragCurrent = getPointerPos(e);
+    });
+
+    function handleGlobalPointerEnd(e) {
+      if (!state.isDragging || e.pointerId !== state.pointerId) return;
+      state.isDragging = false;
+      state.pointerId = null;
+
+      if (state.screen !== 'PLAYING' || state.phase !== 'AIM' || !state.activeDisc) return;
+      const shot = computeShot();
+      if (shot) {
+        launchDisc(shot.vx, shot.vy);
+      }
+    }
+
+    window.addEventListener('pointerup', handleGlobalPointerEnd);
+    window.addEventListener('pointercancel', handleGlobalPointerEnd);
+
+    // =========================================================================
+    // 10. RENDERING (WOOD BOARD, 3x3 GRID, CLASSIC AIM ARROW ONLY, DISCS)
+    // =========================================================================
+    function renderBoard() {
+      const { w, h, rail, playLeft, playRight, playTop, playBottom, holeRadius, foulLineY, launchY } = board;
+
+      ctx.fillStyle = state.woodPattern || '#d49b5a';
+      ctx.fillRect(0, 0, w, h);
+
+      const vig = ctx.createRadialGradient(w * 0.5, h * 0.4, w * 0.1, w * 0.5, h * 0.5, h * 0.72);
+      vig.addColorStop(0, 'rgba(255, 245, 224, 0.14)');
+      vig.addColorStop(1, 'rgba(48, 24, 8, 0.28)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(playLeft, playTop, playRight - playLeft, playBottom - playTop);
+
+      // 3x3 Grid Connecting Lines (Horizontal, Vertical, Diagonal)
+      if (state.rings.length === 9) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(70, 35, 13, 0.65)';
+        ctx.lineWidth = Math.max(3, w * 0.011);
+        ctx.lineCap = 'round';
+        for (const [i, j] of [[0,2],[3,5],[6,8],[0,6],[1,7],[2,8],[0,8],[2,6]]) {
+          ctx.beginPath();
+          ctx.moveTo(state.rings[i].x, state.rings[i].y);
+          ctx.lineTo(state.rings[j].x, state.rings[j].y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 9 Target Rings (Purely reflects r.lockedBy from syncBoardLocks)
+      for (const r of state.rings) {
+        ctx.save();
+        const pocket = ctx.createRadialGradient(r.x, r.y - 2, holeRadius * 0.1, r.x, r.y, holeRadius);
+        pocket.addColorStop(0, 'rgba(82, 42, 15, 0.34)');
+        pocket.addColorStop(0.75, 'rgba(110, 58, 22, 0.22)');
+        pocket.addColorStop(1, 'rgba(56, 26, 8, 0.48)');
+
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, holeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = pocket;
+        ctx.fill();
+
+        if (r.glow > 0.02 && r.lockedBy) {
+          const isY = r.lockedBy === 'yellow';
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, holeRadius * 1.12, 0, Math.PI * 2);
+          ctx.fillStyle = isY
+            ? `rgba(255, 212, 59, ${0.42 * r.glow})`
+            : `rgba(56, 189, 248, ${0.45 * r.glow})`;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, holeRadius, 0, Math.PI * 2);
+        ctx.lineWidth = r.lockedBy ? 3.2 : 2.2;
+        ctx.strokeStyle = r.lockedBy
+          ? (r.lockedBy === 'yellow' ? '#ffe066' : '#74c0fc')
+          : 'rgba(66, 33, 11, 0.72)';
+        ctx.stroke();
+
+        // Inner 45% strict lock zone guide
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, holeRadius * LOCK_THRESHOLD_RATIO, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(72, 37, 14, 0.28)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      // Winning 3-in-a-row line highlight
+      if (state.winningLine && state.rings.length === 9 && (state.winner === 'yellow' || state.winner === 'blue')) {
+        const rs = state.rings[state.winningLine[0]];
+        const re = state.rings[state.winningLine[2]];
+        ctx.save();
+        ctx.strokeStyle = state.winner === 'yellow' ? '#ffe066' : '#74c0fc';
+        ctx.shadowColor = state.winner === 'yellow' ? '#f59f00' : '#1c7ed6';
+        ctx.shadowBlur = 18;
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(rs.x, rs.y);
+        ctx.lineTo(re.x, re.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Foul Line & Launch Spot
+      ctx.save();
+      ctx.strokeStyle = 'rgba(72, 37, 14, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([7, 7]);
+      ctx.beginPath();
+      ctx.moveTo(playLeft + 10, foulLineY);
+      ctx.lineTo(playRight - 10, foulLineY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.beginPath();
+      ctx.arc(w * 0.5, launchY, board.discRadius * 1.18, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(72, 37, 14, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      // Wooden Rails
+      ctx.save();
+      const railL = ctx.createLinearGradient(0, 0, rail, 0);
+      railL.addColorStop(0, '#3d210f');
+      railL.addColorStop(0.6, '#6e3f20');
+      railL.addColorStop(1, '#2b1609');
+      ctx.fillStyle = railL;
+      ctx.fillRect(0, 0, rail, h);
+
+      const railR = ctx.createLinearGradient(w - rail, 0, w, 0);
+      railR.addColorStop(0, '#2b1609');
+      railR.addColorStop(0.4, '#6e3f20');
+      railR.addColorStop(1, '#3d210f');
+      ctx.fillStyle = railR;
+      ctx.fillRect(w - rail, 0, rail, h);
+
+      ctx.fillStyle = '#4a2914';
+      ctx.fillRect(0, 0, w, rail);
+      ctx.fillRect(0, h - rail, w, rail);
+
+      ctx.strokeStyle = 'rgba(255, 224, 178, 0.16)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(playLeft, playTop, playRight - playLeft, playBottom - playTop);
+      ctx.restore();
+    }
+
+    // CLASSIC AIM ARROW ONLY (No ghost circle, no bounce/collision prediction lines)
+    function renderAimArrow() {
+      if (!state.isDragging || !state.activeDisc || state.phase !== 'AIM') return;
+      const shot = computeShot();
+      if (!shot) return;
+
+      const d = state.activeDisc;
+      const arrowLen = 34 + shot.power * Math.min(board.h * 0.24, 150);
+      const endX = d.x + Math.cos(shot.angle) * arrowLen;
+      const endY = d.y + Math.sin(shot.angle) * arrowLen;
+
+      const arrowColor = shot.power < 0.45
+        ? '#ffe066'
+        : (shot.power < 0.78 ? '#ffa94d' : '#ff6b6b');
+
+      ctx.save();
+
+      // Finger pull guide line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(state.dragStart.x, state.dragStart.y);
+      ctx.lineTo(state.dragCurrent.x, state.dragCurrent.y);
+      ctx.stroke();
+
+      // Directional & power arrow shaft
+      ctx.strokeStyle = arrowColor;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 6;
+      ctx.lineWidth = 4.5;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(d.x + Math.cos(shot.angle) * (d.r * 0.8), d.y + Math.sin(shot.angle) * (d.r * 0.8));
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Arrowhead tip
+      const headSize = 13 + shot.power * 4;
+      ctx.fillStyle = arrowColor;
+      ctx.beginPath();
+      ctx.moveTo(endX + Math.cos(shot.angle) * 6, endY + Math.sin(shot.angle) * 6);
+      ctx.lineTo(
+        endX - Math.cos(shot.angle - 0.48) * headSize,
+        endY - Math.sin(shot.angle - 0.48) * headSize
+      );
+      ctx.lineTo(
+        endX - Math.cos(shot.angle + 0.48) * headSize,
+        endY - Math.sin(shot.angle + 0.48) * headSize
+      );
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function renderDisc(d, isReady = false) {
+      ctx.save();
+      const isY = d.owner === 'yellow';
+
+      ctx.beginPath();
+      ctx.arc(d.x + 2, d.y + 4, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(20, 10, 4, 0.42)';
+      ctx.fill();
+
+      if (isReady && state.phase === 'AIM') {
+        const pulse = 1 + Math.sin(performance.now() * 0.007) * 0.08;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r * 1.25 * pulse, 0, Math.PI * 2);
+        ctx.strokeStyle = isY ? 'rgba(255, 224, 102, 0.65)' : 'rgba(116, 192, 252, 0.65)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      const grad = ctx.createRadialGradient(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.1, d.x, d.y, d.r);
+      if (isY) {
+        grad.addColorStop(0, '#fff3bf');
+        grad.addColorStop(0.55, '#f59f00');
+        grad.addColorStop(1, '#9c4c00');
+      } else {
+        grad.addColorStop(0, '#d0ebff');
+        grad.addColorStop(0.55, '#1c7ed6');
+        grad.addColorStop(1, '#123969');
+      }
+
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = isY ? '#ffe066' : '#a5d8ff';
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r * 0.64, 0, Math.PI * 2);
+      ctx.lineWidth = 1.8;
+      ctx.strokeStyle = isY ? 'rgba(120, 55, 0, 0.45)' : 'rgba(10, 40, 80, 0.5)';
+      ctx.stroke();
+
+      if (d.lockedRing !== null) {
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r * 0.22, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function renderParticles() {
+      for (const p of state.particles) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = '#fff3bf';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function renderHint() {
+      if (state.screen === 'PLAYING' && state.phase === 'AIM' && !state.isDragging && !(state.mode === 'bot' && state.turn === 'blue')) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 243, 219, 0.85)';
+        ctx.font = '600 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Diski geri çək, ox işarəsi ilə güc və istiqamət ver', board.w * 0.5, board.playBottom - 10);
+        ctx.restore();
+      }
+    }
+
+    // =========================================================================
+    // 11. MAIN ANIMATION LOOP & INITIALIZATION
+    // =========================================================================
+    let lastTs = 0;
+    function gameLoop(ts) {
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(40, ts - lastTs);
+      lastTs = ts;
+      const dtScale = dt / 16.6667;
+
+      stepPhysics(dtScale);
+      renderBoard();
+      renderAimArrow();
+
+      for (const d of state.discs) renderDisc(d, false);
+      if (state.activeDisc) renderDisc(state.activeDisc, true);
+
+      renderParticles();
+      renderHint();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('resize', resizeBoard);
+
+    function initApp() {
+      buildWoodPattern();
+      resizeBoard();
+      window.selectMode('bot');
+      window.selectDifficulty('hard');
+      updateHUD();
+      if (!state.loopStarted) {
+        state.loopStarted = true;
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+  </script>
+</body>
+</html>
